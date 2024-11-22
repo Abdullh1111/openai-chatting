@@ -5,11 +5,11 @@ import { deleteAllChats, generateChatCompletion, getAllChats } from "../controll
 
 const chatRoutes = express.Router();
 
-// test
-chatRoutes.get("/", (req, res, next) => {
-	console.log("hi");
-	res.send("hello from chatRoutes");
-});
+// // test
+// chatRoutes.get("/", (req, res, next) => {
+// 	console.log("hi");
+// 	res.send("hello from chatRoutes");
+// });
 
 // protected API
 

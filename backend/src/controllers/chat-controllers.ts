@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import User from "../models/user-model.js";
 import { configureOpenAI } from "../configs/open-ai-config.js";
-import { ChatCompletionRequestMessage, OpenAIApi } from "openai";
+import { OpenAI } from "openai"; // Correct OpenAI import
+
+// Define the type for ChatCompletionRequestMessage
+interface ChatCompletionRequestMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
 
 export const generateChatCompletion = async (
 	req: Request,
@@ -11,43 +17,47 @@ export const generateChatCompletion = async (
 	try {
 		const { message } = req.body;
 
+		// Find the user by their JWT data
 		const user = await User.findById(res.locals.jwtData.id);
 		if (!user) {
 			return res.status(401).json("User not registered / token malfunctioned");
 		}
 
-		// grab chats of users
-
-		const chats = user.chats.map(({ role, content }) => ({
-			role,
+		// Prepare user chats for OpenAI (format as required)
+		const chats: ChatCompletionRequestMessage[] = user.chats.map(({ role, content }) => ({
+			role: role as 'user' | 'assistant' | 'system',  // Type assertion to restrict 'role' to the allowed values
 			content,
-		})) as ChatCompletionRequestMessage[];
+		}));
+
 		chats.push({ content: message, role: "user" });
 
-		// save chats inside real user object
+		// Save new chat message in the user's chats array
 		user.chats.push({ content: message, role: "user" });
 
-		// send all chats with new ones to OpenAI API
-		const config = configureOpenAI();
-		const openai = new OpenAIApi(config);
+		// Initialize OpenAI client with configuration
+		const openai = configureOpenAI(); // We configure it here
 
-		// make request to openAi
-		// get latest response
-		const chatResponse = await openai.createChatCompletion({
+		// Request chat completion from OpenAI
+		const chatResponse = await openai.chat.completions.create({
 			model: "gpt-3.5-turbo",
 			messages: chats,
 		});
 
-		// push latest response to db
-		user.chats.push(chatResponse.data.choices[0].message);
+		// Save OpenAI response in user's chat history
+		user.chats.push({
+			role: "assistant",
+			content: chatResponse.choices[0].message?.content || "No response",
+		});
 		await user.save();
 
+		// Respond with the updated chats
 		return res.status(200).json({ chats: user.chats });
 	} catch (error) {
-		console.log(error);
+		console.error(error);
 		return res.status(500).json({ message: error.message });
 	}
 };
+
 
 export const getAllChats = async (
 	req: Request,
@@ -55,23 +65,26 @@ export const getAllChats = async (
 	next: NextFunction
 ) => {
 	try {
-		const user = await User.findById(res.locals.jwtData.id); // get variable stored in previous middleware
-        
+		// Find the user by ID (based on JWT token data)
+		const user = await User.findById(res.locals.jwtData.id); 
 		if (!user)
 			return res.status(401).json({
 				message: "ERROR",
 				cause: "User doesn't exist or token malfunctioned",
 			});
 
+		// Check permissions
 		if (user._id.toString() !== res.locals.jwtData.id) {
 			return res
 				.status(401)
 				.json({ message: "ERROR", cause: "Permissions didn't match" });
 		}
+
+		// Respond with the user's chats
 		return res.status(200).json({ message: "OK", chats: user.chats });
 	} catch (err) {
-		console.log(err);
-		return res.status(200).json({ message: "ERROR", cause: err.message });
+		console.error(err);
+		return res.status(500).json({ message: "ERROR", cause: err.message });
 	}
 };
 
@@ -81,26 +94,29 @@ export const deleteAllChats = async (
 	next: NextFunction
 ) => {
 	try {
-		const user = await User.findById(res.locals.jwtData.id); // get variable stored in previous middleware
-        
+		// Find the user by ID (based on JWT token data)
+		const user = await User.findById(res.locals.jwtData.id); 
 		if (!user)
 			return res.status(401).json({
 				message: "ERROR",
 				cause: "User doesn't exist or token malfunctioned",
 			});
 
+		// Check permissions
 		if (user._id.toString() !== res.locals.jwtData.id) {
 			return res
 				.status(401)
 				.json({ message: "ERROR", cause: "Permissions didn't match" });
 		}
 
-        //@ts-ignore
-        user.chats = []
-        await user.save()
+		// Clear the user's chats
+		user.chats.splice(0, user.chats.length);
+		await user.save();
+
+		// Respond with success
 		return res.status(200).json({ message: "OK", chats: user.chats });
 	} catch (err) {
-		console.log(err);
-		return res.status(200).json({ message: "ERROR", cause: err.message });
+		console.error(err);
+		return res.status(500).json({ message: "ERROR", cause: err.message });
 	}
 };
