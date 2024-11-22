@@ -31,7 +31,7 @@ Before running the application, ensure you have the following installed:
 1.  Clone the repository:
 
     ```bash
-    git clone https://github.com/yashkathe/AI-Chat-Bot-MERN.git
+    git clone https://github.com/Abdullh1111/openai-chatting
     ```
 
 2.  Navigate to the project directory:
