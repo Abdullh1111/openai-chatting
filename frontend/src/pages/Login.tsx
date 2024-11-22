@@ -31,6 +31,7 @@ const Login = () => {
 		const formData = new FormData(event.currentTarget);
 		const email = formData.get("email") as string;
 		const password = formData.get("password") as string;
+		console.log(email,password)
 
 		try {
             setButtonName('Loading ...')
@@ -65,7 +66,7 @@ const Login = () => {
 						name='email'
 						type='text'
 						required={true}
-						maxLength={20}
+						maxLength={100}
 						minLength={5}
 						label='E-Mail'
 						onChange={() => {}}
